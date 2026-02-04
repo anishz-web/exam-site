@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligent Exam System</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --danger: #dc2626;
+            --success: #16a34a;
+            --bg: #f3f4f6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: #1f2937;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgb(144, 211, 234);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 { text-align: center; color: #111827; }
+
+       
+        .question-card {
+            margin-bottom: 25px;
+            padding: 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+
+        .question-text {
+            font-weight: 600;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .option-btn {
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .option-btn:hover { background-color: #f9fafb; border-color: #d1d5db; }
+        
+        .option-btn.selected {
+            border-color: var(--primary);
+            background-color: #eff6ff;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+      
+        .controls { text-align: center; margin-top: 30px; }
+        
+        button#submit-btn {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        button#submit-btn:hover { background-color: #05ea59; }
+
+       
+        #results-panel { display: none; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .stat-card {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border-top: 4px solid var(--primary);
+        }
+
+        .stat-value { font-size: 1.5rem; font-weight: bold; margin-top: 5px; }
+
+        .grade-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .error-msg {
+            color: var(--danger);
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container" id="quiz-view">
+    <h1>Web-Based Examination System</h1>
+    <p style="text-align:center; color:#6b7280;">Correct: +4 | Incorrect: -1</p>
+    <div id="questions-container"></div>
+    <div class="error-msg" id="error-box"></div>
+    <div class="controls">
+        <button id="submit-btn" onclick="submitExam()">Submit Examination</button>
+    </div>
+</div>
+
+<div class="container" id="results-panel">
+    <h1>Performance Analytics</h1>
+    
+    <div class="stats-grid">
+        <div class="stat-card" style="border-top-color: var(--primary);">
+            <div>Total Score</div>
+            <div class="stat-value" id="disp-score">-</div>
+        </div>
+        <div class="stat-card" style="border-top-color: var(--success);">
+            <div>Accuracy</div>
+            <div class="stat-value" id="disp-percent">-</div>
+        </div>
+        <div class="stat-card" style="border-top-color: #8b5cf6;">
+            <div>Grade</div>
+            <div class="stat-value"><span id="disp-grade" class="grade-badge">-</span></div>
+        </div>
+    </div>
+
+    <h3>Detailed Breakdown</h3>
+    <table style="width:100%; border-collapse: collapse;">
+        <tr style="border-bottom: 2px solid #e5e7eb; text-align: left;">
+            <th style="padding: 10px;">Metric</th>
+            <th style="padding: 10px;">Count</th>
+            <th style="padding: 10px;">Impact</th>
+        </tr>
+        <tr>
+            <td style="padding: 10px;">Correct Answers</td>
+            <td style="padding: 10px;" id="count-correct">0</td>
+            <td style="padding: 10px; color: var(--success);">+<span id="score-gain">0</span></td>
+        </tr>
+        <tr>
+            <td style="padding: 10px;">Incorrect Answers</td>
+            <td style="padding: 10px;" id="count-wrong">0</td>
+            <td style="padding: 10px; color: var(--danger);">-<span id="score-loss">0</span></td>
+        </tr>
+    </table>
+
+    <div class="controls">
+        <button id="submit-btn" onclick="location.reload()">Retake Exam</button>
+    </div>
+</div>
+
+<script>
+    
+    const CONFIG = {
+        marksPerCorrect: 4,
+        marksPerWrong: 1 
+    };
+
+    
+    const questionsDB = [
+        {
+            id: 1,
+            text: "Which data structure uses LIFO (Last In First Out)?",
+            options: ["Queue", "Stack", "Array", "Tree"],
+            correctIndex: 1 
+        },
+        {
+            id: 2,
+            text: "What is the time complexity of accessing an array element by index?",
+            options: ["O(n)", "O(log n)", "O(1)", "O(n^2)"],
+            correctIndex: 2 // O(1)
+        },
+        {
+            id: 3,
+            text: "Which HTTP method is idempotent and used to update resources?",
+            options: ["POST", "PUT", "DELETE", "GET"],
+            correctIndex: 1 
+        },
+        {
+            id: 4,
+            text: "In JavaScript, 'typeof null' returns:",
+            options: ["'null'", "'undefined'", "'object'", "'number'"],
+            correctIndex: 2 
+        },
+        {
+            id: 5,
+            text: "Which protocol is used for secure communication over a computer network?",
+            options: ["HTTP", "FTP", "HTTPS", "SMTP"],
+            correctIndex: 2 
+        }
+    ];
+
+    
+    let userResponses = {};
+
+   
+    function init() {
+        const container = document.getElementById('questions-container');
+        
+        questionsDB.forEach((q, index) => {
+            const card = document.createElement('div');
+            card.className = 'question-card';
+            
+            let optionsHtml = '';
+            q.options.forEach((opt, optIndex) => {
+                optionsHtml += `
+                    <div class="option-btn" 
+                         onclick="selectOption(${q.id}, ${optIndex}, this)"
+                         data-qid="${q.id}">
+                        ${opt}
+                    </div>
+                `;
+            });
+
+            card.innerHTML = `
+                <div class="question-text">${index + 1}. ${q.text}</div>
+                <div class="options-grid">${optionsHtml}</div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    
+    function selectOption(qId, optIndex, element) {
+        
+        userResponses[qId] = optIndex;
+
+        
+        const allOptions = document.querySelectorAll(`.option-btn[data-qid="${qId}"]`);
+        allOptions.forEach(btn => btn.classList.remove('selected'));
+        element.classList.add('selected');
+
+        
+        document.getElementById('error-box').style.display = 'none';
+    }
+
+   
+    function submitExam() {
+        const errorBox = document.getElementById('error-box');
+        
+     
+        if (Object.keys(userResponses).length < questionsDB.length) {
+            console.warn("Validation Error: Incomplete Submission");
+            errorBox.innerText = `You have answered ${Object.keys(userResponses).length} out of ${questionsDB.length} questions. Please complete all.`;
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        evaluateResults();
+    }
+
+    
+    function evaluateResults() {
+        let correctCount = 0;
+        let wrongCount = 0;
+
+       
+        questionsDB.forEach(q => {
+            const userChoice = userResponses[q.id];
+            if (userChoice === q.correctIndex) {
+                correctCount++;
+            } else {
+                wrongCount++;
+            }
+        });
+
+        
+        const maxScore = questionsDB.length * CONFIG.marksPerCorrect;
+        const scoreGain = correctCount * CONFIG.marksPerCorrect;
+        const scoreLoss = wrongCount * CONFIG.marksPerWrong;
+        const finalScore = scoreGain - scoreLoss;
+
+        const percentage = (finalScore / maxScore) * 100;
+
+        let grade = 'F';
+        let gradeColor = '#dc2626'; // red
+        if (percentage >= 90) { grade = 'A+'; gradeColor = '#16a34a'; }
+        else if (percentage >= 80) { grade = 'A'; gradeColor = '#16a34a'; }
+        else if (percentage >= 70) { grade = 'B'; gradeColor = '#2563eb'; }
+        else if (percentage >= 60) { grade = 'C'; gradeColor = '#d97706'; }
+        else if (percentage >= 40) { grade = 'D'; gradeColor = '#d97706'; }
+
+        
+        const analyticsData = {
+            totalQuestions: questionsDB.length,
+            correct: correctCount,
+            wrong: wrongCount,
+            rawScore: finalScore,
+            maxPossible: maxScore,
+            percentage: percentage.toFixed(2),
+            grade: grade
+        };
+
+        console.log("Exam Processed:", analyticsData);
+        renderAnalytics(analyticsData, gradeColor, scoreGain, scoreLoss);
+    }
+
+    // --- 6. Dynamic Result Presentation ---
+    function renderAnalytics(data, color, gain, loss) {
+        document.getElementById('quiz-view').style.display = 'none';
+        document.getElementById('results-panel').style.display = 'block';
+
+        document.getElementById('disp-score').innerText = `${data.rawScore} / ${data.maxPossible}`;
+        document.getElementById('disp-percent').innerText = `${data.percentage}%`;
+        
+        const gradeEl = document.getElementById('disp-grade');
+        gradeEl.innerText = data.grade;
+        gradeEl.style.backgroundColor = color;
+
+        document.getElementById('count-correct').innerText = data.correct;
+        document.getElementById('count-wrong').innerText = data.wrong;
+        document.getElementById('score-gain').innerText = gain;
+        document.getElementById('score-loss').innerText = loss;
+    }
+
+
+    init();
+</script>
+
+</body>
+</html>
